@@ -1,5 +1,5 @@
 ## ================================================================================================
-## INTRODUCTION TO R
+## INTRODUCTION TO R - kmohan10@gmail.com
 ##
 ## We will be stepping through different solutions and functions that R provides starting from
 ## the very basics.  The topics covered include:
