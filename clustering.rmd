@@ -5,7 +5,7 @@ date: "11/5/2019"
 output: html_document
 ---
 
-setwd('C:/Users/paart/Documents/PGP_BABI/Handouts/Data Mining/datasets')
+setwd('C:/Users/datasets')
 
 ```{r}
 custSpendData = read.csv('Cust_Spend_Data.csv',header = T)
