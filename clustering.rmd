@@ -1,0 +1,79 @@
+---
+title: "Connectivity based Clustering: Hierarchical Clustering"
+author: "Paarth"
+date: "11/5/2019"
+output: html_document
+---
+
+setwd('C:/Users/paart/Documents/PGP_BABI/Handouts/Data Mining/datasets')
+
+```{r}
+custSpendData = read.csv('Cust_Spend_Data.csv',header = T)
+print(custSpendData)
+```
+
+
+```{r}
+##Calculate the distance without scaling
+dist(custSpendData[,3:7],method = "euclidean")
+```
+
+```{r}
+#Let's scale the data and then cal the distance
+
+custSpendData.scaled = scale(custSpendData[,3:7])
+print(custSpendData.scaled)
+
+```
+
+```{r}
+# Verify whether the data has been scaled 
+apply(custSpendData.scaled,2,mean) # 2- col by col
+apply(custSpendData.scaled,2,sd) # 2- col by col
+```
+
+
+```{r}
+# scaled distance matrix
+distMatrix.scaled = dist(custSpendData.scaled,method = 'euclidean') 
+# or
+distMatrix.scaled =dist(custSpendData.scaled,method = 'minkowski',p=2)
+print(distMatrix.scaled)
+
+```
+
+```{r}
+# let's now do clustering
+
+clustr = hclust(distMatrix.scaled,method = 'average')
+plot(clustr,labels = as.character(custSpendData[,2]))
+
+```
+
+```{r}
+# to display the cluster heights
+clustr$height
+```
+
+
+
+
+```{r}
+# adding rectangles to highlight the clusters
+plot(clustr,labels = as.character(custSpendData[,2]))
+rect.hclust(clustr,k=2)
+```
+
+```{r}
+# adding a cluster number col to the dataset
+
+custSpendData$clusterNo = cutree(clustr, k=3)
+print(custSpendData)
+```
+
+```{r}
+# Let's aggregate the data based on clusterNo
+custProfile = aggregate(custSpendData[,-c(1,2,8)],list(custSpendData$clusterNo),FUN="mean")
+print(custProfile)
+```
+
