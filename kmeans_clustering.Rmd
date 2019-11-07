@@ -1,0 +1,88 @@
+---
+title: "k_means_clustering"
+author: "Paarth"
+date: "7 November 2019"
+output: html_document
+---
+
+```{r}
+# Read the data and scale it 
+setwd('C:/Users/Partha.Tiwari/Documents/datasets')
+custSpendData = read.csv('Cust_Spend_Data.csv',header = T)
+custSpendData.scaled = scale(custSpendData[,3:7])
+print(custSpendData.scaled)
+```
+
+```{r}
+# k-means clustering taking number of clusters as 2
+
+seed = 1000
+set.seed(seed)
+clust2 = kmeans(x = custSpendData.scaled,centers = 2,nstart = 5) 
+#centers - no of clusters
+#nstart - no of iterations
+print(clust2)
+
+```
+```{r}
+# Cluster plotting
+clust2$cluster
+library(cluster)
+clusplot(custSpendData.scaled,clust2$cluster,color = T,shade = T,labels = 2,lines = 1)
+
+```
+
+
+```{r}
+# determining the number of clusters
+totWss = rep(0,5)
+for (k in 1:5){
+  set.seed(seed)
+  clust = kmeans(x = custSpendData.scaled,centers = k,nstart = 5)
+  totWss[k] = clust$tot.withinss
+}
+print(totWss)
+#number of clusters can be determined by looking at the inflection point of the following graph
+plot(c(1:5),totWss,type = "b")
+
+```
+
+
+```{r}
+# a more refined method of determining the number of clusters
+install.packages("NbClust")
+library('NbClust')
+
+set.seed(seed)
+
+nc = NbClust(custSpendData[,c(-1,-2)],min.nc = 2, max.nc = 5,method = "kmeans")
+# inference - this method recommends 3 as the best number of clusters
+
+table(nc$Best.n[1,])
+
+```
+
+```{r}
+# k-means clustering taking number of clusters as 3
+set.seed(seed)
+clust3 = kmeans(x = custSpendData.scaled,centers = 3,nstart = 5) 
+print(clust3)
+clusplot(custSpendData.scaled,clust3$cluster,color = T,shade = T,labels = 2,lines = 1)
+
+
+```
+
+
+
+```{r}
+
+# customer profiling post clustering
+
+custSpendData$cluster = clust3$cluster
+print(custSpendData)
+
+custProfile = aggregate(custSpendData[,-c(1,2,8)],list(custSpendData$cluster),FUN="mean")
+print(custProfile)
+
+```
+
