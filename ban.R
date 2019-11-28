@@ -24,10 +24,18 @@ library(rpart.plot)
 r.ctrl = rpart.control(minsplit=20, minbucket = 7, cp = 0, xval = 5)
 
 # creating the tree for dep var - personal loan
-tree1 = rpart(Personal.Loan ~ ., 
+tree1 = rpart(formula = Personal.Loan ~ ., 
               data = trainDS, 
               method = "class",
               control = r.ctrl )
 
 rpart.plot(tree1)
 
+# finding the apt complexity paramter value for pruning
+printcp(tree1)
+plotcp(tree1)
+## CP = 0.006
+
+# pruning the tree
+ptree1 = prune(tree1, cp= 0.006, "CP")
+rpart.plot(ptree1)
