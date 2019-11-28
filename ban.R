@@ -15,4 +15,19 @@ train_rows = sample(seq_len(nrow(bankDS)),size = samp_size) #pickup 'samp_size' 
 trainDS = bankDS[train_rows,]
 testDS = bankDS[-train_rows,]
 
-# 
+
+# import the libraries
+library(rpart)
+library(rpart.plot)
+
+# setting the control parameters - (Pre pruning, post pruning & Greedy Algorithm negator)
+r.ctrl = rpart.control(minsplit=20, minbucket = 7, cp = 0, xval = 5)
+
+# creating the tree for dep var - personal loan
+tree1 = rpart(Personal.Loan ~ ., 
+              data = trainDS, 
+              method = "class",
+              control = r.ctrl )
+
+rpart.plot(tree1)
+
