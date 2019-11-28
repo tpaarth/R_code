@@ -1,0 +1,109 @@
+---
+  title: "CART"
+output:
+  html_document: default
+pdf_document: default
+---
+  
+  ```{r include=FALSE}
+#Replace the below command to point to your working directory
+setwd ("D:/Academic Operations/Data Mining/Supervised Machine Learning Techniques")
+getwd()
+
+Lets begin by loading a very simple dataset that has two independent variables and a dependent variable that is simply labeled "Good" or "Bad". This simple dataset will make visualization easier.
+
+```{r}
+#loading the data set into the variable trainDS
+trainDS = read.csv("(CART)simpleDTDS.csv", sep = ",", header = TRUE)
+#looking at the variable trainDS
+View(trainDS)
+#removing the first column of trainDS
+trainDS = trainDS[,-1]
+#gives first n rows of trainDS
+head(trainDS)
+#gives number of rows of trainDS
+nrow(trainDS)
+#gives a count of the different entries in the Y column in trainDS
+table(trainDS$Y)
+#gives the fraction of "Good" entries in the Y column in trainDS
+sum(trainDS$Y=="Good")/nrow(trainDS)
+```
+
+Now lets plot it
+```{r}
+#plotting X1 and X2 of trainDS in a 2-D frame
+plot(trainDS$X1,trainDS$X2)
+#colouring all the "Good" points under variable Y of trainDS blue in colour
+points(trainDS$X1[trainDS$Y=="Good"],trainDS$X2[trainDS$Y=="Good"],col="blue",pch=19)
+#colouring all the "Bad" points under variable Y of trainDS red in colour
+points(trainDS$X1[trainDS$Y=="Bad"],trainDS$X2[trainDS$Y=="Bad"],col="red",pch=19)
+```
+
+
+We will use the "rpart" and the "rpart.plot" libraries to build decision trees. We begin by building a very complex classification tree, by setting the "cost complexity" threshold to "0" and the minimum bucket size to be 3. Then we plot the tree using rpart.
+```{r}
+
+#installs the library rpart if it is not installed in the system
+install.packages('rpart')
+#installs the library rpart.plot if it is not installed in the system
+install.packages('rpart.plot')
+#loads the library rpart into the system
+library(rpart)
+#loads the library rpart.plot into the system
+library(rpart.plot)
+
+#here we have built a formula where the variable Y is dependent on all the variables of trainDS
+tree <- rpart(formula = Y ~ ., 
+#building a decision tree
+              data = trainDS, method = "class", cp=0, minbucket=3)
+#printing the decision tree in the console
+tree
+#plots the tree in a graphical manner
+rpart.plot(tree)
+```
+
+
+The cost complexity table can be obtained using the printcp or plotcp functions
+```{r}
+printcp(tree)
+plotcp(tree)
+```
+
+The unncessarily complex tree above can be pruned using a cost complexity threshold. Using a complexity threshold of 0.015 gives us a much simpler tree.
+```{r}
+ptree = prune(tree, cp= 0.015 ,"CP")
+printcp(ptree)
+ptree
+rpart.plot(ptree)
+```
+
+Next for a given decision tree, we can tease out the business rules for each end node using rpart.path
+```{r}
+#gives the path by which we are going to arrive at that particualr node
+path.rpart(ptree,c(4,5,6,7))
+```
+
+Since we only have two independent variables, we can visualize the decision tree in a different and more convenient way.
+```{r}
+plot(trainDS$X1,trainDS$X2)
+points(trainDS$X1[trainDS$Y=="Good"],trainDS$X2[trainDS$Y=="Good"],col="blue",pch=19)
+points(trainDS$X1[trainDS$Y=="Bad"],trainDS$X2[trainDS$Y=="Bad"],col="red",pch=19)
+
+#split 1 at X2=0.4
+lines(c(0,1),c(.4,.4))
+#split 2 at X1=0.75
+lines(c(0.75,0.75),c(0,.4))
+#split 3 at X1=0.5
+lines(c(0.5,0.5),c(.4,1))
+
+#this kind of partition is in line with the decision tree plotted above
+```
+
+Finally, we might want to use the decision tree to predict the class for each row and/or score the probabilities:
+  ```{r}
+#as per our model, we are finding  the prediction of our Y variable
+trainDS$prediction = predict(ptree, data=trianDS, type="class")
+#as per the model built by us, we are finding the probablity of the Y variable being either "Good" or "Bad"
+trainDS$score = predict(ptree, data=trainDS, type="prob")
+head(trainDS)
+```
