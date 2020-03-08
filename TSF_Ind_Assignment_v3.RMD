@@ -1,0 +1,157 @@
+---
+title: "TS Individual Assignment"
+author: "Paarth Tiwari"
+date: "3/8/2020"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+#Importing all the relevant libraries
+rm(list=ls())
+library('forecast')
+library('tseries')
+library('stats')
+library('tidyverse')
+```
+
+
+## 1.	Loading the dataset, initial observations and plots
+
+The dataset going to be used for this case study is the gas dataset from the forecast package. This dataset contains the Australian monthly gas production data from 1956 to 1995.
+
+### i.	Data loading
+```{r}
+# Loading the dataset
+data(gas)
+# Creating TS object
+gasTS <- ts(gas,
+            start = c(1956,1),
+            end = c(1995,8),
+            frequency = 12)
+class(gasTS)
+#force(gasTS)
+#View(gasTS)
+str(gasTS)
+```
+
+**Observations:**  
+a. gas is a time-series object with 476 observations distributed monthly from 1956 to 1995.
+b. No missing data observed in the time series.
+
+### ii.	Basic exploratory TS Plots
+
++ _Plot 1 - TS plot_
+  
+```{r}
+plot(gasTS)
+abline(reg = lm(gasTS~time(gasTS)))
+```
+
+**Observations:**   
+Some of the impressions from the basic TS plot -  
+a. From 1956 to 1969, the yearly gas production appears to be relatively uniform as the graph does not show any obvious trend in the gas production pattern.  
+b. Post 1970 to 1982, a sharp upward/positive trend can be observed in the production of gas units.  
+c. Post 1982, yearly production pattern is relatively uniform. However, intra-year fluctuations in the monthly productions patterns are observed indicating presence of seasonality component in the time series.  
+
++ _Plot 2 - Month Plot_
+```{r}
+monthplot(gasTS)
+```
+
+**Observations:**  
+a. There appears to be an almost bell-curve like distribution in the gas production pattern with mean production being lowest in January and December with the highest mean production in July.   
+b. While the overall production shows an upward trend, we can observe a dip in the production levels towards the later years of the time series.  
+
+As we proceed further, we'll analyze these observations in detail.   
+
+For further analysis, we'll be subsetting the data from 1970(as prescribed in the problem statment)  
+
+```{r}
+# Taking a subset of the series for analysis
+gas.subset <- window(gas,start = 1970)
+#force(gas.subset)
+```
+
+
+Let's create plots for observing the seasonality in the dataset
+
++ _Plot 3 - Seasonal Plot_
+
+```{r}
+ggseasonplot(gas.subset, 
+             year.labels=TRUE, 
+             year.labels.left=TRUE) + 
+  ylab("degree") + 
+  ggtitle("Seasonal plot: Gas Production Data")
+```
+
+**Observations:**  
+As indicated in the earlier monthly plot, for any given year, the production peaks in July.
+
++ _Plot 4 - Polar Seasonal plot Year-wise_
+
+```{r}
+ggseasonplot(gas.subset, 
+             polar=TRUE) + 
+  ylab("degree") + 
+  ggtitle("Polar seasonal plot: Gas Production Data")
+```
+
+**Observations:**  
+Year-on-year production of gas units is increasing.
+
+## 2.	Time series components of the dataset
+
+Thus far, the given dataset exhibits the characteristics of a multiplicative series.  
+We'll now decompose the time series to identify the trend, seasonality and irregular components present in the given series.  
+
+### i. Decomposition of TS using decompose() 
+
++ _By assuming seasonlity is uniform in each year_ - 
+```{r}
+# Decomposition of gas TS using stl()
+gas.subset.decompose1<-stl(gas.subset, s.window='p') 
+#gas.subset.decompose1
+plot(gas.subset.decompose1)
+```
+
+**Observations:**  
+From the scales of the above graphs, it can be interpreted that Trend and Seasonality components impact the production of gas units.  
+
++ _By assuming seasonlity is non-uniform_ - 
+
+```{r}
+gas.subset.decompose2<-stl(gas.subset, s.window=7) 
+#gas.subset.decompose2
+plot(gas.subset.decompose2)
+```
+
+**Observations:**  
+Seasonality appears to be increasing over time. Still the trend component is more dominant.
+
+## 3.	Periodicity
+
+### •	Test and train splits
+
+## 4.	Stationarity
+
+### i.	Visual inspection
+
+### ii.	ADF test
+
+### iii.	Steps to de-seasonalize the series
+
+## 5.	Forecasting
+
+### i.	Initial forecast for next 20 periods
+
+### ii.	Final forecast for next 12 periods
+
+## 6.	Accuracy of the model
+
