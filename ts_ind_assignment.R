@@ -26,7 +26,7 @@ force(gasTS)
 View(gasTS)
 str(gasTS)
 # Observations: 
-# 1. gas is a time-series object with 476 observations distributed monthly from 1956 to 1996
+# 1. gas is a time-series object with 476 observations distributed monthly from 1956 to 1995
 # 2. From 1956 to 1969, the yearly gas production appears to be relatively uniform as the graph does not show any obvious trend in the gas production pattern.
 # 3. Post 1970 to 1982, a sharp upward/positive trend can be observed in the production of gas units.
 # 4. Post 1982, yearly production pattern is relatively uniform. However, fluctuations in the monthly productions patterns are observed.
@@ -91,7 +91,7 @@ plot(gas.subset.decompose.log)
 
 # De-seasonalizing the series 
 # In additive - subtracting the seasonal component from the actual series
-# In multiplicative - convert to log, and subtract seasonal component
+# In multiplicative - convert to log scale, and subtract seasonal component
 #                     or add trend and remainder components
 
 gas.subset.des <- 10^(gas.subset.decompose.log$time.series[,2] + gas.subset.decompose.log$time.series[,3])
@@ -114,6 +114,24 @@ legend("topleft",
 # Observation:
 # This comparision graph also indicates that trend component is dominant
 
+## Spliting data into training and test data sets 2/3 - training 1/3 -testing
+gas.subset.train <- window(gas.subset, 
+                   start=c(1970,1), 
+                   end=c(1991, 12), 
+                   freq=12) 
 
+force(gas.subset.train)
 
+gas.subset.test <- window(gas.subset, 
+                  start=c(1992,1), 
+                  freq=12)
+
+force(gas.subset.test)
+
+# plotting train and test datasets
+autoplot(gas.subset.train, series="Train") + 
+  autolayer(gas.subset.test, series="Test") + 
+  ggtitle("Gas Production Traning and Test data") + 
+  xlab("Year") + ylab("Sales") + 
+  guides(colour=guide_legend(title="Forecast -"))
 
