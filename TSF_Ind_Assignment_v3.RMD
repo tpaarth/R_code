@@ -111,7 +111,7 @@ Year-on-year production of gas units is increasing.
 Thus far, the given dataset exhibits the characteristics of a multiplicative series.  
 We'll now decompose the time series to identify the trend, seasonality and irregular components present in the given series.  
 
-### i. Decomposition of TS using decompose() 
+### i. Decomposition of TS using slt() 
 
 + _By assuming seasonlity is uniform in each year_ - 
 ```{r}
@@ -134,6 +134,29 @@ plot(gas.subset.decompose2)
 
 **Observations:**  
 Seasonality appears to be increasing over time. Still the trend component is more dominant.
+
+
+### i. Decomposition of TS using decompose() 
+
+```{r}
+gas.subset.decompose<-decompose(gas.subset, type = "multiplicative")
+plot(gas.subset.decompose)
+
+```
+
+_Checking the seasonal indices_ - 
+
+```{r}
+## Observing the seasonal indices of gas.subset.decompose
+Seasonal_Ind=round(t(gas.subset.decompose$figure),2) 
+colnames(Seasonal_Ind)<-c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec") 
+Seasonal_Ind
+```
+
+
+**Observations:**  
+The above indices confirm the observation that production is highest in July and lowest in January.
+
 
 ## 3.	Periodicity
 
