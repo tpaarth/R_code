@@ -162,13 +162,105 @@ The above indices confirm the observation that production is highest in July and
 
 ### •	Test and train splits
 
+```{r}
+gas.subset.train <- window(gas.subset, 
+                   start=c(1970,1), 
+                   end=c(1993, 12), 
+                   freq=12) 
+
+gas.subset.test <- window(gas.subset, 
+                  start=c(1994,1), 
+                  freq=12)
+
+#force(gas.subset.train)
+#force(gas.subset.test)
+```
+
+
 ## 4.	Stationarity
 
-### i.	Visual inspection
+For a time series is to qualify as stationary, its mean and variance should remain constant over time. There should be no trend component i.e. series should have a steady best fit line. 
+
+To test whether given series is stationary, we will use the following tests - 
+
+### i.	Visual inspection and KPSS test
+
+In the earlier plots in Section 1, we have observed that with time, the fluctuation about the mean is not constant for the given series. Therefore, the gas timeseries exhibits a non-constant variance and is not stationary.
+
+We can also confirm this using the KPSS(Kwiatkowski–Phillips–Schmidt–Shin) test to determine if the series is stationary.  
+
+
+KPSS test for stationarity is defined as -   
+H0: Series is stationary  
+H1: Series is non-stationary  
+
+```{r}
+kpss.test(gas.subset.train)
+```
+**Test conclusion:**
+KPSS test returned p-value = 0.01 < 0.05 i.e. H0 is rejected
+Therefore, it can be concluded,with 95% confidence,  that the given series is non-stationary.
 
 ### ii.	ADF test
 
+We will now use the ADF(Augmented Dickey-Fuller) test to check the stationarity of the given series.
+
+ADF test for stationarity is defined as - 
+H0: Series is non-stationary
+H1: Series is stationary
+
+```{r}
+adf.test(gas.subset.train,k=24)
+```
+**Test conclusion:**
+ADF test returned p-value = 0.98 > 0.05 i.e. H0 is accepted
+Therefore, it can be concluded,with 95% confidence, that the given series is non-stationary.  
+
+In order to apply ARIMA forecasting models, the series needs to be made stationary.  
+
 ### iii.	Steps to de-seasonalize the series
+
+In order to make the variance constant, we can use logarithmic or trignometric transformations - 
+
+Using log10 transformation:
+
+```{r}
+plot(log10(gas.subset.train))
+```
+
+**Observations:**  
+Variance appears nearly constant.  
+
+In order to achieve a constant mean, we can use differencing - 
+
+```{r}
+plot(diff(log10(gas.subset.train)))
+```
+
+**Observations:**  
+Mean and variance appear nearly constant. 
+
+
+Let's test the transformed series for stationarity:
+```{r}
+# Transformed series 
+tran.gas.subset.train <- diff(log10(gas.subset.train))
+
+# KPSS test
+kpss.test(tran.gas.subset.train)
+```
+**Test conclusion:**
+KPSS test returned p-value = 0.1 > 0.05 i.e. H0 is accpeted
+Therefore, it can be concluded,with 95% confidence,  that the transformed series is stationary.
+
+```{r}
+# ADF test
+adf.test(tran.gas.subset.train,k=24)
+
+```
+**Test conclusion:**
+ADF test returned p-value = 0.037 < 0.05 i.e. H0 is rejected
+Therefore, it can be concluded,with 95% confidence, that the transformed series is stationary.  
 
 ## 5.	Forecasting
 
