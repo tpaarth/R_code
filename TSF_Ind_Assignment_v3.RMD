@@ -17,6 +17,7 @@ rm(list=ls())
 library('forecast')
 library('tseries')
 library('stats')
+library('xts')
 library('tidyverse')
 ```
 
@@ -127,7 +128,7 @@ From the scales of the above graphs, it can be interpreted that Trend and Season
 + _By assuming seasonlity is non-uniform_ - 
 
 ```{r}
-gas.subset.decompose2<-stl(gas.subset, s.window=7) 
+gas.subset.decompose2<-stl(gas.subset, s.window=12) 
 #gas.subset.decompose2
 plot(gas.subset.decompose2)
 ```
@@ -158,7 +159,14 @@ Seasonal_Ind
 The above indices confirm our earlier inference that production is highest in July and lowest in January.
 
 
-## 3.	Periodicity
+## 3.	Periodicity and Data split
+
+### •	Periodicity
+
+```{r}
+periodicity(gas.subset)
+```
+
 
 ### •	Test and train splits
 
@@ -174,6 +182,15 @@ gas.subset.test <- window(gas.subset,
 
 #force(gas.subset.train)
 #force(gas.subset.test)
+```
+
++ Decomposition of training dataset
+
+```{r}
+# Decomposition of gas TS using stl()
+gas.subset.train.dec <- stl(gas.subset.train, s.window=7) 
+#gas.subset.decompose1
+plot(gas.subset.train.dec)
 ```
 
 
@@ -270,9 +287,8 @@ Therefore, it can be concluded,with 95% confidence, that the transformed series 
 Since the given time series exhibits both trend and seasonality components, we can apply the following forecasting models - 
 
   I. ARIMA
- II. auto ARIMA  
-III. SARIMA 
- IV. Holt-Winter's seasonal
+ II. SARIMA/auto.ARIMA  
+III. Holt-Winter's seasonal
 
 Let's examine each model in detail
 
@@ -285,8 +301,8 @@ To determine the (p,d,q) co-ordinates, we will use the following plots:
 2. **p and q co-ordinates**: ACF and PACF plots
 ```{r}
 par(mfrow = c(1,2))
-acf(diff.log.gas.subset.train)
-pacf(diff.log.gas.subset.train)
+acf(diff.log.gas.subset.train,main = "ACF plot")
+pacf(diff.log.gas.subset.train,main = "PACF plot")
 ```
 **Observations:**  
 From the ACF plot, q = (number of significant correlations - 1) = 2.  
@@ -331,12 +347,11 @@ plot(forecast.arima)
 ```
 
 
-+ _Accuracy measure of ARIMA model_ +
 
-Actual Vs Forecast plot:  
+
++ _Actual vs forecasted plot_ 
 
 ```{r}
-## : Accuracy measures: RMSE and MAPE using ARIMA 
 arima.act.forecast <- 10^( cbind(log10(gas.subset.test) ,as.data.frame(forecast(arima.gas.subset.train, h=20))[,1])) 
 
 ts.plot(arima.act.forecast, 
@@ -351,7 +366,7 @@ legend("bottomright",
 
 ```
 
-RSME and MAPE:  
++ _Accuracy measure of ARIMA model_  
 
 ```{r}
 arima.RMSE <- round(sqrt(sum(((arima.act.forecast[,1]-arima.act.forecast[,2])^2)/length(arima.act.forecast[,1]))),4) 
@@ -361,13 +376,14 @@ arima.MAPE <- round(mean(abs(arima.act.forecast[,1]-arima.act.forecast[,2])/arim
 paste("ARIMA Accuracy Measures: RMSE:", arima.RMSE, "and MAPE:", arima.MAPE) 
 ```
 
-### II. Forecasting with auto ARIMA model
+### II. Forecasting with SARIMA/auto.ARIMA model
 
-For auto ARIMA, we will use the transformed series **_log.gas.subset.train_**
+For auto SARIMA/auto.ARIMA, we will use the transformed series **_log.gas.subset.train_**
 
 
 ```{r}
 auto.arima.gas.subset.train <- auto.arima(log.gas.subset.train
+                                          ,seasonal = TRUE
                                           ,method = "ML")
 auto.arima.gas.subset.train
 
@@ -383,12 +399,9 @@ plot(forecast.auto.arima)
 ```
 
 
-+ _Accuracy measure of ARIMA model_ +
-
-Actual Vs Forecast plot:  
++ _Actual vs forecasted plot_ 
 
 ```{r}
-## : Accuracy measures: RMSE and MAPE using ARIMA 
 auto.arima.act.forecast <- 10^( cbind(log10(gas.subset.test) ,as.data.frame(forecast(auto.arima.gas.subset.train, h=20))[,1])) 
 
 ts.plot(arima.act.forecast, 
@@ -403,7 +416,7 @@ legend("bottomright",
 
 ```
 
-RSME and MAPE:  
++ _Accuracy measure of SARIMA model_ +
 
 ```{r}
 auto.arima.RMSE <- round(sqrt(sum(((auto.arima.act.forecast[,1]-auto.arima.act.forecast[,2])^2)/length(auto.arima.act.forecast[,1]))),4) 
@@ -412,9 +425,6 @@ auto.arima.MAPE <- round(mean(abs(auto.arima.act.forecast[,1]-auto.arima.act.for
 
 paste("Auto ARIMA Accuracy Measures: RMSE:", auto.arima.RMSE, "and MAPE:", auto.arima.MAPE) 
 ```
-
-
-### III. Forecating with SARIMA model
 
 ### IV. Forecasting with Holt-Winter's seasonal model
 
@@ -456,7 +466,7 @@ legend("bottomright",
        cex=.60)
 ```
 
-+ _Accuracy of the model_
++ _Accuracy of the Holt-Winter's model_
 
 ```{r}
 hw.RMSE <- round(sqrt(sum(((hw.act.forecast[,1]-hw.act.forecast[,2])^2)/length(hw.act.forecast[,1]))),4) 
@@ -464,11 +474,48 @@ hw.MAPE <- round(mean(abs(hw.act.forecast[,1]-hw.act.forecast[,2])/hw.act.foreca
 paste("HW Accuracy Measures: RMSE:", hw.RMSE, "and MAPE:", hw.MAPE)
 ```
 
-
-
-
-### ii.	Final forecast for next 12 periods
-
 ## 6.	Accuracy of the model
 
-## 7. Final Forecast
+Let's compare the accuracy measures of the models computed in the earlier section
+
+```{r}
+ARIMA <- c(arima.RMSE, arima.MAPE)
+SARIMA <- c(auto.arima.RMSE , auto.arima.MAPE)
+HW <- c(hw.RMSE,hw.MAPE)
+
+df <- as.data.frame(rbind(ARIMA,SARIMA,HW))
+colnames(df) <- c("RMSE","MAPE")
+
+df
+```
+
+
+
+Model					        |RMSE	   |MAPE					
+----------------------|--------|------
+ARIMA					        |3508.355|0.0510		  
+SARIMA  		          |2904.243|0.0444
+Holt-Winter's seasonal|3275.071|0.0535
+
+From the above table, it can be concluded that SARIMA model would provide a better prediction over the other 2 models.
+      
+## 7. Final Forecast for next 12 periods
+
+```{r}
+
+sarima.gas.final <- arima(log10(gas.subset)
+                                 ,order=c(0,1,1)
+                                 ,seasonal=c(1,1,1)
+                                 ,method = "ML")
+sarima.gas.final
+
+```
+
+
+```{r}
+gas.forecast <- forecast(sarima.gas.final,h=12)
+gas.forecast.actual <- round(10^(gas.forecast$mean),3)
+gas.forecast.actual
+plot(gas.forecast)
+```
+
