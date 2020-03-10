@@ -316,7 +316,7 @@ For ARIMA, we will use the transformed series **_log.gas.subset.train_**
 ```{r}
 arima.gas.subset.train <- arima(log.gas.subset.train
                                 ,c(1,2,2)
-                                ,seasonal = list(order = c(1,2,2),period = 12)
+                                ,seasonal = list(order = c(1,2,2))
                                 ,method = "ML")
 arima.gas.subset.train
 
@@ -340,7 +340,7 @@ Therefore, Residuals are stationary and follow white noise pattern
 + _Forecasting for the next 20 periods using ARIMA model_ - 
 
 ```{r}
-forecast.arima <- forecast(arima.gas.subset.train,20)
+forecast.arima <- forecast(arima.gas.subset.train,h = 20)
 forecast.arima
 
 plot(forecast.arima)
@@ -426,6 +426,51 @@ auto.arima.MAPE <- round(mean(abs(auto.arima.act.forecast[,1]-auto.arima.act.for
 paste("Auto ARIMA Accuracy Measures: RMSE:", auto.arima.RMSE, "and MAPE:", auto.arima.MAPE) 
 ```
 
+### III. Alternate SARIMA model with different (p,d,q)(P,D,Q)
+
+Let’s try tweaking the arima model by setting (p,d,q)(P,D,Q) to (1,1,2)(0,1,1)
+
+```{r}
+alt.arima.gas.subset.train <- arima(log.gas.subset.train
+                                ,c(1,1,2)
+                                ,seasonal = list(order = c(0,1,1))
+                                ,method = "ML")
+```
+
++ _Forecasting for the next 20 periods using alternate ARIMA model_ - 
+
+```{r}
+forecast.arima.alt <- forecast(alt.arima.gas.subset.train,h = 20)
+forecast.arima.alt 
+```
+
+
++ _Actual vs forecasted plot_ 
+```{r}
+alt.arima.act.forecast <- 10^( cbind(log10(gas.subset.test) ,as.data.frame(forecast(alt.arima.gas.subset.train, h=20))[,1])) 
+
+ts.plot(alt.arima.act.forecast, 
+        col=c("blue", "red"), 
+        main="alternate SARIMA - gas production: Actual vs Forecast")
+
+legend("bottomright", 
+       legend = c("Actual","Forecast"), 
+       col = c("blue","red"), 
+       lty = 1,
+       cex=.60)
+
+```
+
++ _Accuracy measure of alternate ARIMA model_ +
+
+```{r}
+alt.arima.RMSE <- round(sqrt(sum(((alt.arima.act.forecast[,1]-alt.arima.act.forecast[,2])^2)/length(alt.arima.act.forecast[,1]))),4) 
+alt.arima.MAPE <- round(mean(abs(alt.arima.act.forecast[,1]-alt.arima.act.forecast[,2])/alt.arima.act.forecast[,1]),4) 
+
+paste("Alternate SARIMA Accuracy Measures: RMSE:", alt.arima.RMSE, "and MAPE:", alt.arima.MAPE) 
+
+```
+
 ### IV. Forecasting with Holt-Winter's seasonal model
 
 ```{r}
@@ -474,33 +519,28 @@ hw.MAPE <- round(mean(abs(hw.act.forecast[,1]-hw.act.forecast[,2])/hw.act.foreca
 paste("HW Accuracy Measures: RMSE:", hw.RMSE, "and MAPE:", hw.MAPE)
 ```
 
-## 6.	Accuracy of the model
+## 6. Final Forecast for next 12 periods
 
-Let's compare the accuracy measures of the models computed in the earlier section
+1. Using ARIMA
 
 ```{r}
-ARIMA <- c(arima.RMSE, arima.MAPE)
-SARIMA <- c(auto.arima.RMSE , auto.arima.MAPE)
-HW <- c(hw.RMSE,hw.MAPE)
+arima.gas.final <- arima(log10(gas.subset)
+                                 ,order=c(1,2,2)
+                                ,seasonal = list(order = c(1,2,2))
+                                ,method = "ML")
 
-df <- as.data.frame(rbind(ARIMA,SARIMA,HW))
-colnames(df) <- c("RMSE","MAPE")
+arima.gas.final
+```
 
-df
+```{r}
+gas.forecast1 <- forecast(arima.gas.final,h=12)
+gas.forecast1.actual <- round(10^(gas.forecast1$mean),3)
+gas.forecast1.actual
+plot(gas.forecast1)
 ```
 
 
-
-Model					        |RMSE	   |MAPE					
-----------------------|--------|------
-ARIMA					        |3508.355|0.0510		  
-SARIMA  		          |2904.243|0.0444
-Holt-Winter's seasonal|3275.071|0.0535
-
-From the above table, it can be concluded that SARIMA model would provide a better prediction over the other 2 models.
-      
-## 7. Final Forecast for next 12 periods
-
+2. Using SARIMA
 ```{r}
 
 sarima.gas.final <- arima(log10(gas.subset)
@@ -513,9 +553,55 @@ sarima.gas.final
 
 
 ```{r}
-gas.forecast <- forecast(sarima.gas.final,h=12)
-gas.forecast.actual <- round(10^(gas.forecast$mean),3)
-gas.forecast.actual
-plot(gas.forecast)
+gas.forecast2 <- forecast(sarima.gas.final,h=12)
+gas.forecast2.actual <- round(10^(gas.forecast2$mean),3)
+gas.forecast2.actual
+plot(gas.forecast2)
 ```
 
+3. Using alternate model for SARIMA
+
+```{r}
+alt.arima.gas.final <- arima(log10(gas.subset)
+                                 ,order=c(1,1,2)
+                                ,seasonal = list(order = c(0,1,1))
+                                ,method = "ML")
+
+alt.arima.gas.final
+```
+
+```{r}
+gas.forecast3 <- forecast(alt.arima.gas.final,h=12)
+gas.forecast3.actual <- round(10^(gas.forecast3$mean),3)
+gas.forecast3.actual
+plot(gas.forecast3)
+```
+
+
+## 7.	Accuracy of the model
+
+Let's compare the accuracy measures of the models computed in the earlier section
+
+```{r}
+ARIMA <- c(arima.RMSE, arima.MAPE)
+SARIMA <- c(auto.arima.RMSE , auto.arima.MAPE)
+alt.ARIMA <- c(alt.arima.RMSE, alt.arima.MAPE)
+HW <- c(hw.RMSE,hw.MAPE)
+
+
+df <- as.data.frame(rbind(ARIMA,SARIMA,alt.ARIMA,HW))
+colnames(df) <- c("RMSE","MAPE")
+
+df
+```
+
+
+
+Model					        |RMSE	   |MAPE					
+----------------------|--------|------
+ARIMA					        |3508.355|0.0510		  
+SARIMA  		          |2904.243|0.0444
+alternate SARIMA      |2317.268|0.0364
+Holt-Winter's seasonal|3275.071|0.0535
+
+From the above table, it can be concluded that the 2nd ARIMA model i.e. the alternate ARIMA model would provide a better prediction over the other models.
