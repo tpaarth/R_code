@@ -155,7 +155,7 @@ Seasonal_Ind
 
 
 **Observations:**  
-The above indices confirm the observation that production is highest in July and lowest in January.
+The above indices confirm our earlier inference that production is highest in July and lowest in January.
 
 
 ## 3.	Periodicity
@@ -179,13 +179,13 @@ gas.subset.test <- window(gas.subset,
 
 ## 4.	Stationarity
 
-For a time series is to qualify as stationary, its mean and variance should remain constant over time. There should be no trend component i.e. series should have a steady best fit line. 
+For a time-series to qualify as stationary, its mean and variance should remain constant over time. There should be no trend component i.e. series should have a steady best fit line. 
 
 To test whether given series is stationary, we will use the following tests - 
 
 ### i.	Visual inspection and KPSS test
 
-In the earlier plots in Section 1, we have observed that with time, the fluctuation about the mean is not constant for the given series. Therefore, the gas timeseries exhibits a non-constant variance and is not stationary.
+From the plots created in Section 1, we can observe that with time, the fluctuation about the mean is not constant for the given series. Therefore, the gas timeseries exhibits a non-constant variance and is not stationary.
 
 We can also confirm this using the KPSS(Kwiatkowski–Phillips–Schmidt–Shin) test to determine if the series is stationary.  
 
@@ -203,13 +203,14 @@ Therefore, it can be concluded,with 95% confidence,  that the given series is no
 
 ### ii.	ADF test
 
-We will now use the ADF(Augmented Dickey-Fuller) test to check the stationarity of the given series.
+We will now use the ADF(Augmented Dickey-Fuller) test to check the stationarity of the given series (with k=12 and k=24).
 
 ADF test for stationarity is defined as - 
 H0: Series is non-stationary
 H1: Series is stationary
 
 ```{r}
+adf.test(gas.subset.train,k=12)
 adf.test(gas.subset.train,k=24)
 ```
 **Test conclusion:**
@@ -218,7 +219,7 @@ Therefore, it can be concluded,with 95% confidence, that the given series is non
 
 In order to apply ARIMA forecasting models, the series needs to be made stationary.  
 
-### iii.	Steps to de-seasonalize the series
+### iii.	Steps to make the series stationary
 
 In order to make the variance constant, we can use logarithmic or trignometric transformations - 
 
@@ -234,7 +235,7 @@ Variance appears nearly constant.
 In order to achieve a constant mean, we can use differencing - 
 
 ```{r}
-plot(diff(log10(gas.subset.train)))
+plot(diff(diff(log10(gas.subset.train))))
 ```
 
 **Observations:**  
@@ -244,10 +245,11 @@ Mean and variance appear nearly constant.
 Let's test the transformed series for stationarity:
 ```{r}
 # Transformed series 
-tran.gas.subset.train <- diff(log10(gas.subset.train))
+log.gas.subset.train <-log10(gas.subset.train)
+diff.log.gas.subset.train <- diff(diff(log.gas.subset.train))
 
 # KPSS test
-kpss.test(tran.gas.subset.train)
+kpss.test(diff.log.gas.subset.train)
 ```
 **Test conclusion:**
 KPSS test returned p-value = 0.1 > 0.05 i.e. H0 is accpeted
@@ -255,18 +257,218 @@ Therefore, it can be concluded,with 95% confidence,  that the transformed series
 
 ```{r}
 # ADF test
-adf.test(tran.gas.subset.train,k=24)
+adf.test(diff.log.gas.subset.train,k=12)
+adf.test(diff.log.gas.subset.train,k=24)
 
 ```
 **Test conclusion:**
-ADF test returned p-value = 0.037 < 0.05 i.e. H0 is rejected
+ADF test returned p-values < 0.05 i.e. H0 is rejected
 Therefore, it can be concluded,with 95% confidence, that the transformed series is stationary.  
 
 ## 5.	Forecasting
 
-### i.	Initial forecast for next 20 periods
+Since the given time series exhibits both trend and seasonality components, we can apply the following forecasting models - 
+
+  I. ARIMA
+ II. auto ARIMA  
+III. SARIMA 
+ IV. Holt-Winter's seasonal
+
+Let's examine each model in detail
+
+### I. Forecasting with ARIMA
+
+To determine the (p,d,q) co-ordinates, we will use the following plots:
+
+1. **d co-ordinates**: Since we have considered 2nd order differencing, d = 2
+
+2. **p and q co-ordinates**: ACF and PACF plots
+```{r}
+par(mfrow = c(1,2))
+acf(diff.log.gas.subset.train)
+pacf(diff.log.gas.subset.train)
+```
+**Observations:**  
+From the ACF plot, q = (number of significant correlations - 1) = 2.  
+From the PACF plot, p = 1.  
+
+The final input co-ordinates for the ARIMA model: **(p,d,q)=(1,2,2)**  
+
+For ARIMA, we will use the transformed series **_log.gas.subset.train_**
+
+
+```{r}
+arima.gas.subset.train <- arima(log.gas.subset.train
+                                ,c(1,2,2)
+                                ,seasonal = list(order = c(1,2,2),period = 12)
+                                ,method = "ML")
+arima.gas.subset.train
+
+```
+
++ _Ljung-Box test of stationarity for residuals_ -  
+(with k=12,k=24)
+
+H_0: Residuals are stationary
+H_1: Residuals are non-stationary
+
+```{r}
+Box.test(arima.gas.subset.train$residuals,type = "Ljung-Box",lag = 12)
+Box.test(arima.gas.subset.train$residuals,type = "Ljung-Box",lag = 24)
+```
+**Test conclusion:**  
+Both p-values > 0.05 i.e. H_0 is accepted
+Therefore, Residuals are stationary and follow white noise pattern
+
+
++ _Forecasting for the next 20 periods using ARIMA model_ - 
+
+```{r}
+forecast.arima <- forecast(arima.gas.subset.train,20)
+forecast.arima
+
+plot(forecast.arima)
+```
+
+
++ _Accuracy measure of ARIMA model_ +
+
+Actual Vs Forecast plot:  
+
+```{r}
+## : Accuracy measures: RMSE and MAPE using ARIMA 
+arima.act.forecast <- 10^( cbind(log10(gas.subset.test) ,as.data.frame(forecast(arima.gas.subset.train, h=20))[,1])) 
+
+ts.plot(arima.act.forecast, 
+        col=c("blue", "red"), 
+        main="ARIMA - gas production: Actual vs Forecast")
+
+legend("bottomright", 
+       legend = c("Actual","Forecast"), 
+       col = c("blue","red"), 
+       lty = 1,
+       cex=.60)
+
+```
+
+RSME and MAPE:  
+
+```{r}
+arima.RMSE <- round(sqrt(sum(((arima.act.forecast[,1]-arima.act.forecast[,2])^2)/length(arima.act.forecast[,1]))),4) 
+
+arima.MAPE <- round(mean(abs(arima.act.forecast[,1]-arima.act.forecast[,2])/arima.act.forecast[,1]),4) 
+
+paste("ARIMA Accuracy Measures: RMSE:", arima.RMSE, "and MAPE:", arima.MAPE) 
+```
+
+### II. Forecasting with auto ARIMA model
+
+For auto ARIMA, we will use the transformed series **_log.gas.subset.train_**
+
+
+```{r}
+auto.arima.gas.subset.train <- auto.arima(log.gas.subset.train
+                                          ,method = "ML")
+auto.arima.gas.subset.train
+
+```
+
++ _Forecasting for the next 20 periods using ARIMA model_ - 
+
+```{r}
+forecast.auto.arima <- forecast(auto.arima.gas.subset.train,20)
+forecast.auto.arima
+
+plot(forecast.auto.arima)
+```
+
+
++ _Accuracy measure of ARIMA model_ +
+
+Actual Vs Forecast plot:  
+
+```{r}
+## : Accuracy measures: RMSE and MAPE using ARIMA 
+auto.arima.act.forecast <- 10^( cbind(log10(gas.subset.test) ,as.data.frame(forecast(auto.arima.gas.subset.train, h=20))[,1])) 
+
+ts.plot(arima.act.forecast, 
+        col=c("blue", "red"), 
+        main="ARIMA - gas production: Actual vs Forecast")
+
+legend("bottomright", 
+       legend = c("Actual","Forecast"), 
+       col = c("blue","red"), 
+       lty = 1,
+       cex=.60)
+
+```
+
+RSME and MAPE:  
+
+```{r}
+auto.arima.RMSE <- round(sqrt(sum(((auto.arima.act.forecast[,1]-auto.arima.act.forecast[,2])^2)/length(auto.arima.act.forecast[,1]))),4) 
+
+auto.arima.MAPE <- round(mean(abs(auto.arima.act.forecast[,1]-auto.arima.act.forecast[,2])/auto.arima.act.forecast[,1]),4) 
+
+paste("Auto ARIMA Accuracy Measures: RMSE:", auto.arima.RMSE, "and MAPE:", auto.arima.MAPE) 
+```
+
+
+### III. Forecating with SARIMA model
+
+### IV. Forecasting with Holt-Winter's seasonal model
+
+```{r}
+hw.gas.subset.train <- HoltWinters(gas.subset.train)
+hw.gas.subset.train
+
+TS_Train_HW <- hw(gas.subset.train, seasonal = "multiplicative")
+TS_Train_HW$model
+
+plot(TS_Train_HW$model)
+```
+
++ _Forecasting for the next 20 periods using HW model_ -   
+
+```{r}
+forecast.hw <- forecast(hw.gas.subset.train,20)
+forecast.hw
+
+plot(forecast.hw)
+```
+
+
++ _Actual vs forecasted plot_
+
+```{r}
+hw.act.forecast <- cbind(gas.subset.test ,
+             as.data.frame(forecast(hw.gas.subset.train, h=20))[,1])
+
+
+ts.plot(hw.act.forecast, 
+        col=c("blue", "red"), 
+        main="HW - gas production: Actual vs Forecast")
+
+legend("bottomright", 
+       legend = c("Actual","Forecast"), 
+       col = c("blue","red"), 
+       lty = 1,
+       cex=.60)
+```
+
++ _Accuracy of the model_
+
+```{r}
+hw.RMSE <- round(sqrt(sum(((hw.act.forecast[,1]-hw.act.forecast[,2])^2)/length(hw.act.forecast[,1]))),4) 
+hw.MAPE <- round(mean(abs(hw.act.forecast[,1]-hw.act.forecast[,2])/hw.act.forecast[,1]),4) 
+paste("HW Accuracy Measures: RMSE:", hw.RMSE, "and MAPE:", hw.MAPE)
+```
+
+
+
 
 ### ii.	Final forecast for next 12 periods
 
 ## 6.	Accuracy of the model
 
+## 7. Final Forecast
