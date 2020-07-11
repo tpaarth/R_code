@@ -1,0 +1,663 @@
+---
+title: "Machine Learning-Group7 Assignment : Transport Mode Car prediction" 
+author: "Group7: Deeshant Kamal, Paarth Tiwari, Venkatesh Taduvayi"
+date: "04/07/2020"
+output: html_document
+---
+
+
+```{r}
+rm(list=ls())
+require(gridExtra)
+require(ggplot2)
+require(caTools)
+library(dplyr)
+library(GGally)
+library(fastDummies)
+library(corrplot)
+set.seed(123)
+library(grid)
+library(MLmetrics)
+library(xts)
+library(tidyverse)
+library(ggrepel)
+library(DataExplorer)
+library(caret)
+```
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Cars Dataset
+
+Let's load the dataset
+
+
+```{r, include=FALSE}
+cars_df <- read.csv(file.choose(),header = T,sep = ",")
+summary(cars_df)
+```
+# 
+## 1. Basic Data Summary
+
+Distribution of the variables 
+
+
+Category   | Variables
+-----------|--------------------
+Continous  | Age,Work.Exp,Salary,Distance
+Categorical| Gender,Engineer,MBA,license,Transport
+
+**Predictor/Independant Variables**:
+Age,Work.Exp,Salary,Distance,Gender,Engineer,MBA,license
+
+**Target/Dependant Variable**: 
+Transport
+
+```{r , echo=FALSE}
+dim(cars_df)
+str(cars_df)
+
+cars_df$Engineer <- as.factor(cars_df$Engineer)
+cars_df$MBA <- as.factor(cars_df$MBA)
+cars_df$license <- as.factor(cars_df$license)
+
+str(cars_df)
+summary(cars_df)
+
+```
+**Inference** - 
+The dataset consists of 444 observations across 9 variables.
+
+### Univariate Analysis
+
+#### Continous Variables
+**Age,Work.Exp,Salary,Distance**
+```{r setContinousVariables}
+cont.vars = c("Age","Work.Exp","Salary","Distance")
+```
+
+
+i. Measures of central tendency & Spread of data
+```{r}
+summary(cars_df)
+```
+
+```{r GraphPlotter}
+fn.print.plt <- function(df,xlst,FUN = fname) {
+  P <- list()
+  for(i in xlst) {
+    p <- FUN(df,i)
+    P <- c(P,list(p))
+  }
+  
+  do.call(grid.arrange, c(P, nrow = 2))
+}
+
+```
+
+ii. Box Plots
+
+```{r boxplots}
+
+fn.box <- function(df,y) {
+  ggplot(df,aes(x = "", y = df[,y])) + geom_boxplot() + xlab(y) +ylab("value")+ coord_flip() 
+}
+
+fn.print.plt(cars_df,cont.vars,FUN = fn.box)
+```
+
+
+iii. Histograms
+
+```{r histograms}
+
+fn.hist <- function(df,xvar) {
+  ggplot(df, aes(x = df[,xvar])) + geom_histogram(binwidth = 2, colour = "black", fill = "white") + xlab(xvar)
+}
+
+fn.hist2 <- function(df,xvar) {
+  ggplot(df, aes(x = df[,xvar])) + geom_histogram(aes(y=..density..),binwidth = 2, colour = "black", fill = "white") + geom_density(alpha=.2, fill = "#FF6666") + xlab(xvar)
+}
+
+fn.print.plt(cars_df,cont.vars,FUN = fn.hist)
+fn.print.plt(cars_df,cont.vars,FUN = fn.hist2)
+```
+
+
+iv. QQ Plots 
+
+```{r qqplots}
+
+fn.qq <- function(df,xvar) {
+  ggplot(data = df, aes_string(sample = xvar)) + stat_qq(col = "blue") + stat_qq_line(col = "red", lty = 1) + ggtitle("QQ plot of ", xvar)
+}
+
+fn.print.plt(cars_df,cont.vars,FUN = fn.qq)
+```
+
+
+#### Categorical Variables
+**Gender,Engineer,MBA,license,Transport**
+
+```{r setCategoricalVariables}
+cat.vars = c("Gender","Engineer","MBA","license","Transport")
+```
+
+
+i. Counts & proportion distribution
+https://www.statmethods.net/stats/frequencies.html
+```{r}
+lapply(cars_df[,cat.vars], table)
+
+lapply(lapply(cars_df[,cat.vars], table),prop.table)
+
+```
+
+
+
+ii. Bar Plots
+
+```{r}
+
+fn.bar <- function(df,xvar) {
+  ggplot(cars_df, aes_string(xvar)) + 
+    geom_bar(aes(y = (..count..)/sum(..count..)),stat="count",colour = "black", fill = "white") +
+    scale_y_continuous(labels=scales::percent) +
+    xlab(xvar) + 
+    ylab("relative frequencies")
+}
+
+
+
+fn.print.plt(cars_df,cat.vars,FUN = fn.bar)
+```
+
+### Bivariate Analysis
+
+#### I. Categorical & Continuous
+
+a) Gender and Salary
+
+```{r}
+by(cars_df$Salary, cars_df$Gender, summary)
+
+cars_df %>%
+  ggplot(aes(x = Gender, y= Salary)) +
+  geom_boxplot()
+
+```
+
+
+b) Engineer & Salary
+
+```{r}
+by(cars_df$Salary, cars_df$Engineer, summary)
+
+cars_df %>%
+  ggplot(aes(x = Engineer, y= Salary, group = Gender)) +
+  geom_boxplot()
+
+
+```
+
+c) MBA & Salary
+
+```{r}
+by(cars_df$Salary, cars_df$MBA, summary)
+
+cars_df %>%
+  ggplot(aes(x = MBA, y= Salary, group = Gender)) +
+  geom_boxplot()
+
+```
+
+
+d) Gender & Distance
+
+```{r GenderDistance}
+wilcox.test(cars_df$Distance~cars_df$Gender)
+```
+***Inference***
+p-value = 0.3598 > 0.05 i.e. H0 is accepted 
+There is no significant difference in the distance travelled amongst the two genders.
+
+e) MBA & Distance
+
+```{r MBADist}
+wilcox.test(cars_df$Distance~cars_df$MBA)
+```
+***Inference***
+p-value = 0.5392 > 0.05 i.e. H0 is accepted 
+There is no significant difference in the distance travelled amongst people MBA and non-MBA grads.
+
+f) Engineering & Distance
+
+```{r EngDistance}
+wilcox.test(cars_df$Distance~cars_df$Engineer)
+```
+***Inference***
+p-value = 0.1427 > 0.05 i.e. H0 is accepted 
+There is no significant difference in the distance travelled amongst people Engineering and non-Engineering grads.
+
+
+#### II. Categorical & Categorical
+
+2/3 Way cross tables
+
+```{r crossTabs}
+cars_df
+# 3-Way Frequency Table
+mytable <- xtabs(~Gender+Engineer+MBA+Transport, data=cars_df)
+ftable(mytable) # print table
+summary(mytable) # chi-square test of indepedence
+
+```
+
+```{r GenderDistribution by Qualification}
+library('gmodels')
+CrossTable(cars_df$Engineer,cars_df$Gender, prop.t = T)
+CrossTable(cars_df$MBA,cars_df$Gender, prop.t = T)
+#CrossTable(cars_df$Gender,cars_df$MBA, prop.t = F)
+
+```
+
+
+```{r GenderDistribution by License Holders}
+library('gmodels')
+CrossTable(cars_df$license,cars_df$Gender, prop.t = T)
+
+```
+
+
+```{r GenderDistribution by Transport Modes}
+library('gmodels')
+CrossTable(cars_df$Transport,cars_df$Gender, prop.t = T)
+
+```
+
+```{r }
+
+chisq.test(cars_df$Gender,cars_df$Engineer)
+chisq.test(cars_df$Gender,cars_df$MBA)
+chisq.test(cars_df$Gender,cars_df$MBA)
+
+```
+
+
+
+#### III. Continuous & Continuous
+
+Combined plot
+
+```{r CombibedPlot}
+ggpairs(cars_df)
+
+```
+
+
+Correlation Plots
+
+```{r Corrplot}
+cor(cars_df[,cont.vars])
+corrplot(cor(cars_df[,cont.vars]),method="number")
+
+```
+
+
+Scatter plots 
+
+```{r ScatterPlots}
+
+# plotting function
+fn.print.plt1 <- function(df,xlst,ylst,FUN = fname) {
+  Q <- list()
+  for(i in xlst) {
+    for(j in ylst) {
+      q <- FUN(df,i,j)
+      Q <- c(Q,list(q))
+    }
+  }
+  do.call(grid.arrange, c(Q, nrow = 4))
+}
+
+# scatter plot defining function
+fn.sp <- function(df,xvar,yvar) {
+  ggplot(data = df, aes_string(x = xvar, y = yvar)) +
+    geom_point()
+}
+
+# function calls
+fn.print.plt1(cars_df,cont.vars,cont.vars,FUN = fn.sp)
+
+```
+
+
+### Outlier detection & treatment
+
+### Missing value detection & treatment
+
+```{r missing values detection and treatment}
+# Complete cases
+table(complete.cases(cars_df))
+cars_df[which(!complete.cases(cars_df)),]
+
+# removing the incomplete case
+cars_df <- na.omit(cars_df)
+
+cars_df
+```
+
+
+
+##  Check for Multicollinearity - Plot the graph based on Multicollinearity
+
+## 2. Data Preparation
+
+```{r Logistic Regression}
+
+carsdata <- cars_df
+carsdata
+carsdata$car = ifelse(carsdata$Transport=="Car",1,0)
+carsdata$Gender<-ifelse(carsdata$Gender=="Female",0,1)
+carsdata <- carsdata[,-9]
+
+# Converting all the factors
+carsdata$Engineer = as.factor(carsdata$Engineer)
+carsdata$Gender = as.factor(carsdata$Gender)
+carsdata$MBA = as.factor(carsdata$MBA)
+carsdata$license = as.factor(carsdata$license)
+carsdata$car = as.factor(carsdata$car)
+str(carsdata)
+
+#sample = sample.split(carsdata, SplitRatio = .70)
+#train = subset(carsdata, sample == TRUE)
+#test  = subset(carsdata, sample == FALSE)
+
+nrow(train)
+nrow(test)
+str(train)
+str(test)
+
+prop.table(table(train$car))
+prop.table(table(test$car))
+
+apply(carsdata, 2, function(x) length(unique(x)))
+# Imputing the missing value
+carsdata$MBA[is.na(carsdata$MBA)] = 0
+train$MBA[is.na(train$MBA)] = 0
+test$MBA[is.na(test$MBA)] = 0
+
+
+```
+
+## 3. Apply Logistic Regression & Interpret the results
+
+```{r}
+fmla <- as.formula("car ~ Age + Work.Exp + Salary + Distance + Gender + Engineer + MBA + license")
+
+logit = glm(formula = fmla, 
+            data = train, 
+            family = binomial
+           )
+
+summary(logit)
+
+```
+
+### Logit evaluation and interpretation
+
+#### Step 1: Check overall validity of the model. Can we apply LOGIT?
+
+```{r}
+library(lmtest)
+lrtest(logit)
+```
+
+This is to evaluate whether atleast one of the betas is non-zero.
+Inference: 
+p-value < 2.2e-16  < 0.05
+i.e. At 95% confidence, H0 can be rejected i.e. atlease one beta is not zero.Therefore, logistic regression can be applied!
+
+Log Likelihood interpretation(we try to maximize the log likelihood)
+Null Model:  -115.355
+Full Model: -18.097
+Gain: 97.258 * 2 = 194.516 (by using coefficient compared to null model)
+
+#### Step 2: McFadden's R square or pseudo R square 
+Acceptance scale = (above 10% is acceptable) (above 30% is outstanding)
+
+```{r}
+library(pscl)
+pR2(logit)
+```
+
+Inference: 
+McFadden's RSqure - 0.7898227  > 30% i.e. outstanding
+
+#### Step 3: Check statistical significance of each independent variable: Gives us the statistical significance
+
+```{r}
+summary(logit)
+```
+***Inference***
+From the above summary, it can be seen that Age,Work.Exp, license and Distance are the most significant variables that impact the mode of transport.
+
+#### Step 4: Prediction and confusion matrix
+
+```{r}
+Prediction = predict(logit, type = "response")
+Cutoff = floor(Prediction+0.5) # to get the predicted values
+```
+
+
+####Step 5: Confusion matrix for training data
+
+```{r}
+confmat = table(Predicted = Cutoff, Actual = train$car)
+confmat
+
+caret::confusionMatrix(confmat,positive = "1",mode = "everything")
+```
+***Inference***
+The logistic regression model yields an accuracy of 95.29% on the training data with a precision of 82% and recall of 82%. This suggests that the model is able to predict the transportation mode fairly accuratly. 
+
+Lets verify this on the test data.
+
+
+#### Step 6: ROC Curve
+Acceptance scale = area under the curve is more than 70% for a good model
+
+```{r}
+library(Deducer)
+rocplot(logistic.model = logit)
+
+```
+
+***Inference***
+AUC = 0.9946 also indicates an excellent prediction model. Lets verify this outcome on the test data.
+
+
+#### Step 7: Verifying the model on test data
+
+
+```{r}
+PredictionTestDS = predict(logit,newdata = test ,type = "response")
+CutoffTestDS = floor(PredictionTestDS+0.5)
+confmat <- table(Actual = test$car,Predicted = CutoffTestDS)
+
+
+caret::confusionMatrix(confmat,positive = "1",mode = "everything")
+
+```
+
+***Inference***
+The logistic regression model also yields a high accuracy of 97.96% on the test data with an improved precision of 85%. This suggests that the model is able to predict the transportation mode fairly accuratly. 
+
+
+## 4. Apply KNN model
+
+### Using caret package
+#### Step 1: Preparing the data for kNN
+
+creating a copy of the test/train datasets for use
+```{r}
+train.knn <- train
+test.knn <- test
+
+train.knn$MBA[is.na(train.knn$MBA)] = 0
+test.knn$MBA[is.na(test.knn$MBA)] = 0
+
+str(test.knn)
+```
+
+Lets check the proportion of data distribution in the target table
+
+```{r}
+prop.table(table(train.knn$car))*100
+prop.table(table(test.knn$car))*100
+
+```
+
+***Inference***
+Since the class data highly imbalaced, we will use the SMOTE technique to balance the data in order to produce a better a predicive model:
+
+#### Step 2: Scaling and setting parameters for knn
+
+Since KNN is a distance based algorithm, we need to scale the data in order to ensure metrics are brought to similar scale.
+
+```{r}
+
+# setting control parameters for cross-validation and smote
+control <- trainControl(method = "cv"
+                        ,number = 5
+                        ,sampling = "smote")
+
+preProcValues <- preProcess(train.knn, method = c("center","scale"))
+trainTransformed <- predict(preProcValues, train.knn)
+
+
+```
+
+#### Step 3: knn Model
+
+
+```{r}
+model_tran  <- train(car ~ .
+                     ,data = trainTransformed
+                     ,method = "knn"
+                     ,trControl = control
+                     ,tuneLength = 5
+)
+
+model_tran
+```
+
+***Inference***
+Looking at the output from caret::train for knn, we can see that the algorithm chose k=11 as the value where accuracy peaked at 92.91%
+
+```{r}
+plot(model_tran)
+```
+
+***Inference***
+Model level plot also confirms that accuracy peaks for k=11
+
+#### Step 4: Confusion matrix for training data
+
+```{r}
+pred <- predict(model_tran, trainTransformed)
+confusionMatrix(pred, trainTransformed$car, positive = "1")
+
+```
+
+***Inference***
+KNN model also performs well with an accuracy of 91.92% on the training data.
+
+Lets verify this by running the model on the test set.
+
+####Step 5: Verifying the model on test data
+
+```{r}
+preProcValues <- preProcess(test.knn, method = c("center","scale"))
+
+testTransformed <- predict(preProcValues, test.knn)
+pred <- predict(model_tran, testTransformed)
+confusionMatrix(pred, testTransformed$car, positive = "1")
+
+```
+
+***Inference***
+KNN model also performs well with an improved accuracy of 97.28% on the testing data.
+
+
+## 5. Model Validation
+
+Model       |  Metric         | Value
+------------|-----------------|-------
+1. Logistic | Train Accuracy  | 0.9529
+            | Test Accuracy   | 0.9796
+2. k-NN     | Train Accuracy  | 0.9192
+            | Test Accuracy   | 0.9728
+
+***Inference***
+From the above comparsion, it appears that both the models perform well in predicting 'Car' as the preferred mode of transport. However, it can be noted that logistic regression performs slightly better that k-NN on both accounts of test and train datasets.
+
+## 6. Bagging
+
+```{r}
+library(ipred)
+library(rpart)
+
+train.bag <- train
+test.bag <- test
+
+str(train.bag)
+```
+
+```{r}
+cars.bagging <- bagging(car ~.,
+                        data=train.bag,
+                        control=rpart.control(maxdepth=5, minsplit=4))
+
+
+test.bag$pred.class <- predict(cars.bagging, test.bag)
+
+
+confusionMatrix(test.bag$pred.class,
+                test.bag$car, 
+                positive = "1")
+
+```
+
+***Inference***
+Bagging shows a significant improvement in accuracy (to 98.64%) on test data over Logistic and k-NN models.
+
+## 7. Boosting
+
+```{r}
+library(xgboost)
+```
+
+
+```{r}
+train.xgb <- train
+test.xgb <- test
+
+```
+
+
+```{r}
+xgb.model <- train( car ~., 
+                data = train.xgb, 
+                method = "xgbTree",
+                trControl = trainControl("cv", number = 10)
+                )
+
+
+```
+
